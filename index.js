@@ -5,7 +5,7 @@ const line = require('@line/bot-sdk');
 
 const app = express();
 
-// Configuração do LINE
+// ================= CONFIG LINE =================
 const config = {
   channelSecret: process.env.LINE_CHANNEL_SECRET,
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
@@ -13,7 +13,12 @@ const config = {
 
 const client = new line.Client(config);
 
-// Webhook
+// ============== DETECTA PORTUGUÊS ==============
+function isPortuguese(text) {
+  return /[ãõáéíóúâêôç]/i.test(text);
+}
+
+// ================= WEBHOOK =====================
 app.post('/webhook', line.middleware(config), async (req, res) => {
   try {
     for (const event of req.body.events) {
@@ -21,71 +26,85 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
 
       const texto = event.message.text.trim();
 
-      let origem = null;
-      let destino = null;
-      let textoParaTraduzir = null;
-      let prefixo = null;
-	  
-		  // Comando !help
-		if (texto.toLowerCase() === '!help') {
-	  await client.replyMessage(event.replyToken, {
-		type: 'text',
-		text:
-	`🤖 Commands 🤖
+      // Evita loop
+      if (texto.startsWith('[')) continue;
 
-	!pt   Inglês → Português
-	!en   Português → Inglês
-	!es   Português → Espanhol
-	!ptes Espanhol → Português
-	!ko   Português → Coreano
+      let origem, destino, textoParaTraduzir, prefixo;
 
-	Examples:
-	!pt Hello my friend
-	!en Olá meu amigo
-	!ptes Hola amigo`
-	  });
-	  continue;
-	}
+      // ================= !HELP ==================
+      if (texto.toLowerCase() === '!help') {
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text:
+`🤖 BOT TRADUTOR 🤖
 
+🔁 AUTOMÁTICO:
+Português → Inglês
+Outros idiomas → Português
 
-      if (texto.toLowerCase().startsWith('!pt ')) {
-        origem = 'en';
-        destino = 'pt';
+📌 COMANDOS:
+!pt    Inglês → Português
+!ptes  Espanhol → Português
+!en    Português → Inglês
+!es    Português → Espanhol
+!ko    Português → Coreano
+
+📍 EXEMPLOS:
+Olá amigo
+Hello friend
+!en Olá amigo
+!help`
+        });
+        continue;
+      }
+
+      // ============ COMANDOS MANUAIS ============
+      if (texto.toLowerCase().startsWith('!ptes ')) {
+        origem = 'es'; destino = 'pt';
+        textoParaTraduzir = texto.slice(6);
+        prefixo = 'TRADUÇÃO PT (ES)';
+      }
+
+      else if (texto.toLowerCase().startsWith('!pt ')) {
+        origem = 'en'; destino = 'pt';
         textoParaTraduzir = texto.slice(4);
         prefixo = 'TRADUÇÃO PT';
       }
-	  
-	  if (texto.toLowerCase().startsWith('!ptes ')) {
-		origem = 'es';
-		destino = 'pt';
-		textoParaTraduzir = texto.slice(6);
-		prefixo = 'TRADUÇÃO PT (ES)';
-      }
 
-
-      if (texto.toLowerCase().startsWith('!en ')) {
-        origem = 'pt';
-        destino = 'en';
+      else if (texto.toLowerCase().startsWith('!en ')) {
+        origem = 'pt'; destino = 'en';
         textoParaTraduzir = texto.slice(4);
         prefixo = 'TRANSLATION EN';
       }
 
-      if (texto.toLowerCase().startsWith('!es ')) {
-        origem = 'pt';
-        destino = 'es';
+      else if (texto.toLowerCase().startsWith('!es ')) {
+        origem = 'pt'; destino = 'es';
         textoParaTraduzir = texto.slice(4);
         prefixo = 'TRADUCCIÓN ES';
       }
 
-      if (texto.toLowerCase().startsWith('!ko ')) {
-        origem = 'pt';
-        destino = 'ko';
+      else if (texto.toLowerCase().startsWith('!ko ')) {
+        origem = 'pt'; destino = 'ko';
         textoParaTraduzir = texto.slice(4);
         prefixo = '번역 (KO)';
       }
 
-      // Se não for comando válido, ignora
-      if (!origem || !destino || !textoParaTraduzir) continue;
+      // ============ AUTO TRADUÇÃO ============
+      else {
+        textoParaTraduzir = texto;
+
+        if (isPortuguese(texto)) {
+          // PT → EN
+          origem = 'pt';
+          destino = 'en';
+          prefixo = 'AUTO EN';
+        } else {
+          // OUTROS → PT
+          origem = 'en';
+          destino = 'pt';
+          prefixo = 'AUTO PT';
+        }
+      }
 
       let traducaoTexto = '⚠️ Erro ao traduzir';
 
@@ -121,11 +140,13 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
   }
 });
 
-// Rota teste
+// ================= TESTE ======================
 app.get('/', (req, res) => {
-  res.send('🤖 Bot do LINE multilíngue está online');
+  res.send('🤖 Bot do LINE está online');
 });
 
-app.listen(3000, () => {
-  console.log('Servidor rodando na porta 3000');
+// ================= SERVER =====================
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log('Servidor rodando na porta', PORT);
 });
