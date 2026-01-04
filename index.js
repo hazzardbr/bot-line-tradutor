@@ -23,6 +23,27 @@ function isIndonesian(text) {
   return /\b(yang|dan|tidak|saya|kamu|apa|ini|itu|dari|ke|di|ada|bisa)\b/i.test(text);
 }
 
+// ============== FUNÇÃO DE TRADUÇÃO ==============
+async function traduzir(texto, origem, destino) {
+  try {
+    const res = await axios.get(
+      'https://api.mymemory.translated.net/get',
+      {
+        params: {
+          q: texto,
+          langpair: `${origem}|${destino}`
+        },
+        timeout: 10000
+      }
+    );
+
+    return res.data?.responseData?.translatedText || 'Erro na tradução';
+  } catch (err) {
+    console.error(`Erro ${origem}->${destino}:`, err.message);
+    return 'Erro na tradução';
+  }
+}
+
 // ================= WEBHOOK =====================
 app.post('/webhook', line.middleware(config), async (req, res) => {
   try {
@@ -34,8 +55,6 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
       // Evita loop
       if (!texto || texto.startsWith('[')) continue;
 
-      let origem, destino, textoParaTraduzir, prefixo;
-
       // ================= !HELP ==================
       if (texto.toLowerCase() === '!help') {
         await client.replyMessage(event.replyToken, {
@@ -44,101 +63,80 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
 `🤖 BOT TRADUTOR 🤖
 
 🔁 AUTOMÁTICO:
+Indonésio → Português + Inglês
 Português → Inglês
-Indonésio → Português
 Outros → Português
 
 📌 COMANDOS:
-!pt    Inglês → Português
-!ptes  Espanhol → Português
-!en    Português → Inglês
-!es    Português → Espanhol
-!ko    Português → Coreano
+!en texto  → PT → EN
+!pt texto  → EN → PT
 
 📍 EXEMPLOS:
+saya tidak tahu
 Olá amigo
-Hello friend
 !en Olá amigo
 !help`
         });
         continue;
       }
 
-      // ============ COMANDOS MANUAIS ============
-      if (texto.toLowerCase().startsWith('!ptes ')) {
-        origem = 'es'; destino = 'pt';
-        textoParaTraduzir = texto.slice(6);
-        prefixo = 'TRADUÇÃO PT (ES)';
-      }
-      else if (texto.toLowerCase().startsWith('!pt ')) {
-        origem = 'en'; destino = 'pt';
-        textoParaTraduzir = texto.slice(4);
-        prefixo = 'TRADUÇÃO PT';
-      }
-      else if (texto.toLowerCase().startsWith('!en ')) {
-        origem = 'pt'; destino = 'en';
-        textoParaTraduzir = texto.slice(4);
-        prefixo = 'TRANSLATION EN';
-      }
-      else if (texto.toLowerCase().startsWith('!es ')) {
-        origem = 'pt'; destino = 'es';
-        textoParaTraduzir = texto.slice(4);
-        prefixo = 'TRADUCCIÓN ES';
-      }
-      else if (texto.toLowerCase().startsWith('!ko ')) {
-        origem = 'pt'; destino = 'ko';
-        textoParaTraduzir = texto.slice(4);
-        prefixo = '번역 (KO)';
+      // ================= COMANDOS =================
+      if (texto.toLowerCase().startsWith('!en ')) {
+        const conteudo = texto.slice(4);
+        const traducao = await traduzir(conteudo, 'pt', 'en');
+
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `[EN]\n${traducao}`
+        });
+        continue;
       }
 
-      // ============ AUTO TRADUÇÃO ============
-      else {
-        textoParaTraduzir = texto;
+      if (texto.toLowerCase().startsWith('!pt ')) {
+        const conteudo = texto.slice(4);
+        const traducao = await traduzir(conteudo, 'en', 'pt');
 
-        if (isPortuguese(texto)) {
-          origem = 'pt';
-          destino = 'en';
-          prefixo = 'AUTO EN';
-        }
-        else if (isIndonesian(texto)) {
-          origem = 'id';
-          destino = 'pt';
-          prefixo = 'AUTO PT (ID)';
-        }
-        else {
-          origem = 'en';
-          destino = 'pt';
-          prefixo = 'AUTO PT';
-        }
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `[PT]\n${traducao}`
+        });
+        continue;
       }
 
-      // Segurança extra (evita erro da API)
-      if (!textoParaTraduzir) continue;
+      // ============ AUTO: INDONÉSIO ============
+      if (isIndonesian(texto)) {
+        const pt = await traduzir(texto, 'id', 'pt');
+        const en = await traduzir(texto, 'id', 'en');
 
-      let traducaoTexto = '⚠️ Erro ao traduzir';
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text:
+`[AUTO PT 🇧🇷]
+${pt}
 
-      try {
-        const response = await axios.get(
-          'https://api.mymemory.translated.net/get',
-          {
-            params: {
-              q: textoParaTraduzir,
-              langpair: `${origem}|${destino}`
-            },
-            timeout: 10000
-          }
-        );
-
-        if (response.data?.responseData?.translatedText) {
-          traducaoTexto = response.data.responseData.translatedText;
-        }
-      } catch (err) {
-        console.error('Erro MyMemory:', err.message);
+[AUTO EN 🇺🇸]
+${en}`
+        });
+        continue;
       }
+
+      // ============ AUTO: PORTUGUÊS ============
+      if (isPortuguese(texto)) {
+        const en = await traduzir(texto, 'pt', 'en');
+
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `[AUTO EN 🇺🇸]\n${en}`
+        });
+        continue;
+      }
+
+      // ============ AUTO: OUTROS ============
+      const pt = await traduzir(texto, 'en', 'pt');
 
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: `[${prefixo}]\n${traducaoTexto}`
+        text: `[AUTO PT 🇧🇷]\n${pt}`
       });
     }
 
