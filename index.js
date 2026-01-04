@@ -62,20 +62,12 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
           text:
 `🤖 BOT TRADUTOR 🤖
 
-🔁 AUTOMÁTICO:
-Indonésio → Português + Inglês
-Português → Inglês
-Outros → Português
+📌 COMANDOS: !pt Inglês → Português 
+!ptes Espanhol → Português 
+!en Português → Inglês 
+!es Português → Espanhol 
+!ko Português → Coreano
 
-📌 COMANDOS:
-!en texto  → PT → EN
-!pt texto  → EN → PT
-
-📍 EXEMPLOS:
-saya tidak tahu
-Olá amigo
-!en Olá amigo
-!help`
         });
         continue;
       }
