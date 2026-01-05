@@ -63,42 +63,52 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
 `🤖 BOT TRADUTOR 🤖
 
 🔁 AUTOMÁTICO:
-Indonésio → Português + Inglês
-Português → Inglês
-Outros → Português
+🇮🇩 Indonésio → 🇧🇷 PT + 🇺🇸 EN
+🇧🇷 Português → 🇺🇸 EN
+🌍 Outros → 🇧🇷 PT
 
 📌 COMANDOS:
-!en texto  → PT → EN
-!pt texto  → EN → PT
+!en texto → PT → EN
+!pt texto → EN → PT
 
 📍 EXEMPLOS:
 saya tidak tahu
 Olá amigo
-!en Olá amigo
-!help`
+!en Olá amigo`
         });
         continue;
       }
 
-      // ================= COMANDOS =================
+      // ================= COMANDOS MANUAIS =================
       if (texto.toLowerCase().startsWith('!en ')) {
-        const conteudo = texto.slice(4);
-        const traducao = await traduzir(conteudo, 'pt', 'en');
+        const conteudo = texto.slice(4).trim();
+        if (!conteudo) continue;
 
+        const traducao = await traduzir(conteudo, 'pt', 'en');
         await client.replyMessage(event.replyToken, {
           type: 'text',
-          text: `[EN]\n${traducao}`
+          text: `[EN 🇺🇸]\n${traducao}`
         });
         continue;
       }
 
       if (texto.toLowerCase().startsWith('!pt ')) {
-        const conteudo = texto.slice(4);
-        const traducao = await traduzir(conteudo, 'en', 'pt');
+        const conteudo = texto.slice(4).trim();
+        if (!conteudo) continue;
 
+        const traducao = await traduzir(conteudo, 'en', 'pt');
         await client.replyMessage(event.replyToken, {
           type: 'text',
-          text: `[PT]\n${traducao}`
+          text: `[PT 🇧🇷]\n${traducao}`
+        });
+        continue;
+      }
+
+      // 🚫 BLOQUEIA AUTO SE COMEÇAR COM "!"
+      if (texto.startsWith('!')) {
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❗ Comando não reconhecido.\nUse !help para ver os comandos disponíveis.'
         });
         continue;
       }
@@ -123,7 +133,6 @@ ${en}`
       // ============ AUTO: PORTUGUÊS ============
       if (isPortuguese(texto)) {
         const en = await traduzir(texto, 'pt', 'en');
-
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: `[AUTO EN 🇺🇸]\n${en}`
@@ -133,7 +142,6 @@ ${en}`
 
       // ============ AUTO: OUTROS ============
       const pt = await traduzir(texto, 'en', 'pt');
-
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: `[AUTO PT 🇧🇷]\n${pt}`
