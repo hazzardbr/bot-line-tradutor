@@ -68,10 +68,14 @@ Português → Inglês
 Outros → Português
 
 📌 COMANDOS:
-!ptes Espanhol → Português 
-!en Português → Inglês 
-!es Português → Espanhol 
-!ko Português → Coreano`
+!en texto  → PT → EN
+!pt texto  → EN → PT
+
+📍 EXEMPLOS:
+saya tidak tahu
+Olá amigo
+!en Olá amigo
+!help`
         });
         continue;
       }
