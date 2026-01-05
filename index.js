@@ -13,17 +13,20 @@ const config = {
 
 const client = new line.Client(config);
 
-// ============== DETECTA PORTUGUÊS ==============
+// ============== DETECÇÕES =====================
 function isPortuguese(text) {
   return /[ãõáéíóúâêôç]/i.test(text);
 }
 
-// ============== DETECTA INDONÉSIO ==============
 function isIndonesian(text) {
   return /\b(yang|dan|tidak|saya|kamu|apa|ini|itu|dari|ke|di|ada|bisa)\b/i.test(text);
 }
 
-// ============== FUNÇÃO DE TRADUÇÃO ==============
+function isKorean(text) {
+  return /[\u3131-\uD79D]/.test(text);
+}
+
+// ============== FUNÇÃO DE TRADUÇÃO =============
 async function traduzir(texto, origem, destino) {
   try {
     const res = await axios.get(
@@ -65,46 +68,52 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
 🔁 AUTOMÁTICO:
 🇮🇩 Indonésio → 🇧🇷 PT + 🇺🇸 EN
 🇧🇷 Português → 🇺🇸 EN
+🇰🇷 Coreano → 🇧🇷 PT
 🌍 Outros → 🇧🇷 PT
 
 📌 COMANDOS:
-!en texto → PT → EN
-!pt texto → EN → PT
-
-📍 EXEMPLOS:
-saya tidak tahu
-Olá amigo
-!en Olá amigo`
+!ptes Espanhol → Português
+!en   Português → Inglês
+!es   Português → Espanhol
+!ko   Português → Coreano`
         });
         continue;
       }
 
-      // ================= COMANDOS MANUAIS =================
+      // ============ COMANDOS MANUAIS ============
+      if (texto.toLowerCase().startsWith('!ptes ')) {
+        const t = texto.slice(6).trim();
+        if (!t) continue;
+        const r = await traduzir(t, 'es', 'pt');
+        await client.replyMessage(event.replyToken, { type: 'text', text: `[PT 🇧🇷]\n${r}` });
+        continue;
+      }
+
       if (texto.toLowerCase().startsWith('!en ')) {
-        const conteudo = texto.slice(4).trim();
-        if (!conteudo) continue;
-
-        const traducao = await traduzir(conteudo, 'pt', 'en');
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: `[EN 🇺🇸]\n${traducao}`
-        });
+        const t = texto.slice(4).trim();
+        if (!t) continue;
+        const r = await traduzir(t, 'pt', 'en');
+        await client.replyMessage(event.replyToken, { type: 'text', text: `[EN 🇺🇸]\n${r}` });
         continue;
       }
 
-      if (texto.toLowerCase().startsWith('!pt ')) {
-        const conteudo = texto.slice(4).trim();
-        if (!conteudo) continue;
-
-        const traducao = await traduzir(conteudo, 'en', 'pt');
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: `[PT 🇧🇷]\n${traducao}`
-        });
+      if (texto.toLowerCase().startsWith('!es ')) {
+        const t = texto.slice(4).trim();
+        if (!t) continue;
+        const r = await traduzir(t, 'pt', 'es');
+        await client.replyMessage(event.replyToken, { type: 'text', text: `[ES 🇪🇸]\n${r}` });
         continue;
       }
 
-      // 🚫 BLOQUEIA AUTO SE COMEÇAR COM "!"
+      if (texto.toLowerCase().startsWith('!ko ')) {
+        const t = texto.slice(4).trim();
+        if (!t) continue;
+        const r = await traduzir(t, 'pt', 'ko');
+        await client.replyMessage(event.replyToken, { type: 'text', text: `[KO 🇰🇷]\n${r}` });
+        continue;
+      }
+
+      // 🚫 BLOQUEIA AUTO PARA COMANDO INVÁLIDO
       if (texto.startsWith('!')) {
         await client.replyMessage(event.replyToken, {
           type: 'text',
@@ -126,6 +135,16 @@ ${pt}
 
 [AUTO EN 🇺🇸]
 ${en}`
+        });
+        continue;
+      }
+
+      // ============ AUTO: COREANO ============
+      if (isKorean(texto)) {
+        const pt = await traduzir(texto, 'ko', 'pt');
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `[AUTO PT 🇧🇷]\n${pt}`
         });
         continue;
       }
